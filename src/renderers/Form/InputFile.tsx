@@ -5,7 +5,7 @@ import isPlainObject from 'lodash/isPlainObject';
 // @ts-ignore
 import mapLimit from 'async/mapLimit';
 import ImageControl from './InputImage';
-import {Payload, ApiObject, ApiString} from '../../types';
+import {Payload, ApiObject, ApiString, Action} from '../../types';
 import {filter} from '../../utils/tpl';
 import Alert from '../../components/Alert2';
 import {qsstringify, createObject, guid, isEmpty} from '../../utils/helper';
@@ -504,6 +504,8 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         }
       }
     );
+    // 添加文件触发
+    this.dispatchEvent('onChange');
   }
 
   handleDropRejected(
@@ -668,9 +670,11 @@ export default class FileControl extends React.Component<FileProps, FileState> {
               if (error) {
                 newFile.state = 'error';
                 newFile.error = error;
+                this.dispatchEvent('fail', newFile);
               } else {
                 newFile = obj as FileValue;
                 newFile[nameField] = newFile[nameField] || file!.name;
+                this.dispatchEvent('success', newFile);
               }
               files.splice(idx, 1, newFile);
               this.current = null;
@@ -812,6 +816,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
   removeFile(file: FileX | FileValue, index: number) {
     const files = this.state.files.concat();
+    const removeFile = files[index];
 
     this.removeFileCanelExecutor(file, true);
     files.splice(index, 1);
@@ -827,6 +832,9 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       },
       isUploading ? this.tick : this.onChange
     );
+    this.dispatchEvent('onChange');
+    // 触发移出文件事件
+    this.dispatchEvent('remove', removeFile);
   }
 
   clearError() {
@@ -1173,6 +1181,22 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       });
     } else if (this.state.files.some(item => item.state === 'error')) {
       return __('File.errorRetry');
+    }
+  }
+
+  dispatchEvent(
+    e: string,
+    data?: Array<FileX | FileValue> | FileX | FileValue
+  ) {
+    const {dispatchEvent} = this.props;
+    data = data ? data : this.state.files;
+    dispatchEvent(e, data);
+  }
+
+  doAction(action: Action, data: object, throwErrors: boolean = false): any {
+    if (action.actionType === 'clear') {
+      this.setState({files: []});
+      this.dispatchEvent('onChange');
     }
   }
 
